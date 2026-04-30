@@ -14,7 +14,11 @@ class ApiError extends Error {
 
 async function getAuthHeader(): Promise<Record<string, string>> {
   const supabase = createClient();
-  const { data } = await supabase.auth.getSession();
+  let { data } = await supabase.auth.getSession();
+  if (!data.session) {
+    const refreshed = await supabase.auth.refreshSession();
+    data = refreshed.data;
+  }
   const token = data.session?.access_token;
   return token ? { Authorization: `Bearer ${token}` } : {};
 }

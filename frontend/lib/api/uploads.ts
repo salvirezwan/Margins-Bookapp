@@ -18,7 +18,11 @@ export interface UserBook {
 
 async function getToken(): Promise<string | null> {
   const supabase = createClient();
-  const { data } = await supabase.auth.getSession();
+  let { data } = await supabase.auth.getSession();
+  if (!data.session) {
+    const refreshed = await supabase.auth.refreshSession();
+    data = refreshed.data;
+  }
   return data.session?.access_token ?? null;
 }
 
