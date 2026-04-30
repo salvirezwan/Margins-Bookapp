@@ -20,7 +20,8 @@ def verify_supabase_jwt(token: str) -> uuid.UUID:
             audience="authenticated",
         )
     except JWTError as exc:
-        logger.warning("JWT verification failed: %s", exc)
+        secret_len = len(settings.supabase_jwt_secret)
+        logger.warning("JWT verification failed: %s | secret_len=%d", exc, secret_len)
         raise ValueError("Invalid or expired token") from exc
 
     sub = payload.get("sub")
