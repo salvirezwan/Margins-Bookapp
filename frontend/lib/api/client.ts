@@ -14,11 +14,9 @@ class ApiError extends Error {
 
 async function getAuthHeader(): Promise<Record<string, string>> {
   const supabase = createClient();
-  let { data } = await supabase.auth.getSession();
-  if (!data.session) {
-    const refreshed = await supabase.auth.refreshSession();
-    data = refreshed.data;
-  }
+  // getSession() can return a stale token on first client render.
+  // refreshSession() exchanges the cookie for a fresh access_token.
+  const { data } = await supabase.auth.refreshSession();
   const token = data.session?.access_token;
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
