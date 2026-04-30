@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { serverFetch } from "@/lib/api/server";
 import type { ReadingProgress } from "@/lib/api/progress";
 import type { Book } from "@/lib/api/books";
+import type { UserBook } from "@/lib/api/uploads";
+import { UploadPanel } from "@/components/my-books/UploadPanel";
 
 export const metadata = { title: "My Books — margins" };
 
@@ -17,9 +19,11 @@ export default async function MyBooksPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/sign-in");
 
-  const progressList = await serverFetch<ReadingProgress[]>("/me/progress").catch(() => []);
+  const [progressList, myBooks] = await Promise.all([
+    serverFetch<ReadingProgress[]>("/me/progress").catch(() => [] as ReadingProgress[]),
+    serverFetch<UserBook[]>("/me/books").catch(() => [] as UserBook[]),
+  ]);
 
-  // Fetch book details for each progress entry
   const withBooks = (
     await Promise.all(
       progressList.map(async (p) => {
@@ -32,22 +36,14 @@ export default async function MyBooksPage() {
 
   const inProgress = withBooks.filter((p) => p.percent_complete > 0 && p.percent_complete < 99);
   const finished = withBooks.filter((p) => p.percent_complete >= 99);
+  const hasActivity = withBooks.length > 0;
 
   return (
-    <div className="mx-auto max-w-4xl px-4 sm:px-6 py-10 space-y-10">
+    <div className="mx-auto max-w-4xl px-4 sm:px-6 py-10 space-y-12">
       <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">My Books</h1>
 
-      {withBooks.length === 0 ? (
-        <div className="py-24 text-center space-y-4">
-          <p className="text-zinc-500 dark:text-zinc-400">You haven&apos;t started reading anything yet.</p>
-          <Link
-            href="/library"
-            className="inline-block rounded-full bg-zinc-900 px-6 py-2.5 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 transition-colors"
-          >
-            Browse the library
-          </Link>
-        </div>
-      ) : (
+      {/* Reading progress sections */}
+      {hasActivity ? (
         <>
           {inProgress.length > 0 && (
             <section className="space-y-4">
@@ -71,7 +67,26 @@ export default async function MyBooksPage() {
             </section>
           )}
         </>
+      ) : (
+        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 py-12 text-center space-y-4">
+          <p className="text-zinc-500 dark:text-zinc-400">You haven&apos;t started reading anything yet.</p>
+          <Link
+            href="/library"
+            className="inline-block rounded-full bg-zinc-900 px-6 py-2.5 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 transition-colors"
+          >
+            Browse the library
+          </Link>
+        </div>
       )}
+
+      {/* Private uploads section */}
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-sm font-semibold uppercase tracking-widest text-zinc-400">Upload a book</h2>
+          <p className="mt-1 text-xs text-zinc-400">EPUB and PDF — private to you, never shared</p>
+        </div>
+        <UploadPanel initialBooks={myBooks} />
+      </section>
     </div>
   );
 }

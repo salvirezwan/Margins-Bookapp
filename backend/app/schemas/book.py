@@ -53,3 +53,20 @@ class BookListResponse(BaseModel):
     page: int
     page_size: int
     has_next: bool
+
+
+class UserBookRead(BaseModel):
+    """Private book uploaded by the current user."""
+
+    id: uuid.UUID
+    title: str
+    author: str | None
+    language: str | None
+    cover_url: str | None
+    file_url: str
+    file_format: FileFormatEnum
+    file_size_bytes: int | None
+    word_count: int | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}

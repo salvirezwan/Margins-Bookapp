@@ -10,6 +10,7 @@ Usage:
 import argparse
 import asyncio
 import logging
+import re
 import time
 
 import httpx
@@ -22,8 +23,6 @@ from app.db.models import Book
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
-
-import re
 
 OPENLIBRARY_SEARCH = "https://openlibrary.org/search.json"
 OPENLIBRARY_COVER = "https://covers.openlibrary.org/b/olid/{olid}-L.jpg"
@@ -41,7 +40,8 @@ _ILLUSTRATED_RE = re.compile(r",?\s*(illustrated|annotated|complete|abridged)$",
 
 def _clean_title(title: str) -> str:
     t = title.strip()
-    for pattern in (_BRACKETS_RE, _PARENS_RE, _SUBTITLE_RE, _VOLUME_RE, _EDITION_RE, _ILLUSTRATED_RE):
+    _patterns = (_BRACKETS_RE, _PARENS_RE, _SUBTITLE_RE, _VOLUME_RE, _EDITION_RE, _ILLUSTRATED_RE)
+    for pattern in _patterns:
         t = pattern.sub("", t).strip()
     return t
 

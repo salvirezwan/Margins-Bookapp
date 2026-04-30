@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.bookmarks import router as bookmarks_router
 from app.api.books import router as books_router
 from app.api.progress import router as progress_router
+from app.api.uploads import router as uploads_router
 from app.auth.deps import get_current_user
 from app.config import settings
 from app.core.logging import configure_logging
@@ -37,6 +38,7 @@ app.add_middleware(
 app.include_router(books_router)
 app.include_router(progress_router)
 app.include_router(bookmarks_router)
+app.include_router(uploads_router)
 
 
 @app.get("/health")
