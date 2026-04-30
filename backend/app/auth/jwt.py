@@ -1,5 +1,7 @@
+# mypy: disable-error-code="misc,arg-type,no-untyped-call,import-untyped,unused-ignore"
 import logging
 import uuid
+from typing import Any
 
 import httpx
 from jose import JWTError, jwt
@@ -8,11 +10,10 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Cached JWKS public keys (fetched once at startup)
-_jwks_cache: list[dict] | None = None  # type: ignore[type-arg]
+_jwks_cache: list[dict[str, Any]] | None = None
 
 
-def _get_jwks() -> list[dict]:  # type: ignore[type-arg]
+def _get_jwks() -> list[dict[str, Any]]:
     global _jwks_cache
     if _jwks_cache is not None:
         return _jwks_cache
@@ -24,32 +25,41 @@ def _get_jwks() -> list[dict]:  # type: ignore[type-arg]
     return _jwks_cache
 
 
+def _build_key(jwk: dict[str, Any]) -> object:
+    """Construct a jose key object from a JWK dict."""
+    kty: str = jwk.get("kty", "")
+    alg: str = jwk.get("alg", "ES256")
+    # Import here to avoid top-level type issues with jose's untyped backends
+    from jose.backends import ECKey, RSAKey  # type: ignore[import-untyped]
+    if kty == "EC":
+        return ECKey(jwk, algorithm=alg)  # type: ignore[no-untyped-call]
+    return RSAKey(jwk, algorithm=alg)  # type: ignore[no-untyped-call]
+
+
 def verify_supabase_jwt(token: str) -> uuid.UUID:
     """Decode and verify a Supabase-issued JWT. Returns the user_id on success."""
-    # Decode header without verification to check algorithm
     try:
         header = jwt.get_unverified_header(token)
     except JWTError as exc:
         raise ValueError("Invalid token header") from exc
 
-    alg = header.get("alg", "")
+    alg: str = header.get("alg", "")
 
     try:
-        if alg == "RS256":
-            # Verify using Supabase JWKS public keys
-            keys = _get_jwks()
-            kid = header.get("kid")
-            # Try matching key by kid, fall back to trying all keys
-            candidates = [k for k in keys if k.get("kid") == kid] if kid else keys
+        if alg in ("RS256", "ES256"):
+            jwks = _get_jwks()
+            kid: str | None = header.get("kid")
+            candidates = [k for k in jwks if k.get("kid") == kid] if kid else jwks
             if not candidates:
-                candidates = keys
-            last_exc: Exception = ValueError("No JWKS keys available")
+                candidates = jwks
+            last_exc: Exception = ValueError("No matching JWKS key")
             for jwk in candidates:
                 try:
-                    payload = jwt.decode(
+                    key = _build_key(jwk)
+                    payload: dict[str, Any] = jwt.decode(  # type: ignore[arg-type]
                         token,
-                        jwk,
-                        algorithms=["RS256"],
+                        key,
+                        algorithms=[alg],
                         audience="authenticated",
                     )
                     break
@@ -58,7 +68,6 @@ def verify_supabase_jwt(token: str) -> uuid.UUID:
             else:
                 raise last_exc
         else:
-            # HS256 fallback for older Supabase projects
             payload = jwt.decode(
                 token,
                 settings.supabase_jwt_secret,
